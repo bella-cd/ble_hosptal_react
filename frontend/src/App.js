@@ -11,7 +11,7 @@ function DashboardLayout() {
   return (
     <>
       <Sidebar />
-      <div style={{ marginLeft: 220, background: "#f6f8f9", minHeight: "100vh" }}>
+  <div style={{ marginLeft: 220, background: "#f8f9fc", minHeight: "100vh" }}>
         <Navbar />
         <div style={{ padding: 30 }}>
           <Routes>

@@ -42,7 +42,7 @@ function AdminPanel() {
   };
 
   return (
-    <div className="card p-4" style={{ maxWidth: 900, margin: "auto", boxShadow: "0 6px 24px #0001" }}>
+  <div className="card p-4" style={{ maxWidth: 900, margin: "auto", boxShadow: "0 6px 24px #e3e6f0", background: '#fff', color: '#5a5c69', borderRadius: '0.35rem' }}>
       <h2>ESP Mappings</h2>
       <div className="mb-3">
         <input

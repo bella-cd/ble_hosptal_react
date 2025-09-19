@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 const sidebarStyle = {
   width: "220px",
   minHeight: "100vh",
-  background: "#173b51",
+  background: "#4e73df", // SB Admin blue
   color: "#fff",
   position: "fixed",
   left: 0,
@@ -12,9 +12,10 @@ const sidebarStyle = {
 };
 
 const activeStyle = {
-  background: "#10639c",
-  color: "#fff",
+  background: "#f8f9fc", // SB Admin card bg
+  color: "#4e73df", // SB Admin blue text
   fontWeight: "bold",
+  borderRadius: "6px 0 0 6px"
 };
 
 const linkStyle = {
@@ -26,6 +27,8 @@ const linkStyle = {
   textDecoration: "none",
   marginBottom: "4px",
   borderLeft: "4px solid transparent",
+  fontWeight: 500,
+  borderRadius: "6px 0 0 6px"
 };
 
 export default function Sidebar() {
@@ -38,8 +41,9 @@ export default function Sidebar() {
         fontSize: "1.3rem",
         padding: "0 25px 15px",
         letterSpacing: ".5px",
+        color: "#fff"
       }}>
-        <span style={{ color: "#ffc200" }}>BLE</span> Dashboard
+        <span style={{ color: "#36b9cc" }}>BLE</span> Dashboard
       </div>
       <nav>
         <Link

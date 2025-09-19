@@ -9,8 +9,8 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark bg-primary px-3">
-      <Link className="navbar-brand" to="/devices">BLE Dashboard</Link>
+  <nav className="navbar navbar-expand-lg" style={{ background: '#fff', color: '#5a5c69', borderBottom: '1px solid #e3e6f0', padding: '0 24px' }}>
+  <Link className="navbar-brand" to="/devices" style={{ color: '#4e73df', fontWeight: 700 }}>BLE Dashboard</Link>
 
       <div className="collapse navbar-collapse">
         <ul className="navbar-nav me-auto">
@@ -21,7 +21,7 @@ export default function Navbar() {
             <Link className="nav-link" to="/admin">ESP Mapping</Link>
           </li>
         </ul>
-        <button className="btn btn-outline-light" onClick={handleLogout}>Logout</button>
+  <button className="btn" style={{ background: '#f6c23e', color: '#fff', fontWeight: 600 }} onClick={handleLogout}>Logout</button>
       </div>
     </nav>
   );
