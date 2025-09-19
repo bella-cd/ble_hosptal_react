@@ -4,7 +4,7 @@ import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import Devices from "./components/Devices";
 import AdminPanel from "./components/AdminPanel";
-import LoginSignupForm from "./components/LoginSignupForm"; // assuming combined login/signup form
+import LoginSignupForm from "./components/LoginSignupForm";
 import RequireAuth from "./components/RequireAuth";
 
 function DashboardLayout() {
@@ -16,14 +16,10 @@ function DashboardLayout() {
         <div style={{ padding: 30 }}>
           <Routes>
             <Route path="/devices" element={
-              <RequireAuth>
-                <Devices />
-              </RequireAuth>
+              <RequireAuth><Devices /></RequireAuth>
             } />
             <Route path="/admin" element={
-              <RequireAuth>
-                <AdminPanel />
-              </RequireAuth>
+              <RequireAuth><AdminPanel /></RequireAuth>
             } />
             <Route path="*" element={<Navigate to="/devices" />} />
           </Routes>

@@ -1,27 +1,24 @@
-// Import Link and useNavigate for navigation
 import { Link, useNavigate } from "react-router-dom";
 
-// Navbar component for top navigation
-function Navbar() {
-  const navigate = useNavigate(); // For navigation
+export default function Navbar() {
+  const navigate = useNavigate();
 
-  // Handle user logout
-  function handleLogout() {
+  const handleLogout = () => {
     localStorage.removeItem("username");
     navigate("/login");
-  }
+  };
 
-  // Render navigation bar
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-primary px-3">
       <Link className="navbar-brand" to="/devices">BLE Dashboard</Link>
+
       <div className="collapse navbar-collapse">
         <ul className="navbar-nav me-auto">
           <li className="nav-item">
             <Link className="nav-link" to="/devices">Live Devices</Link>
           </li>
           <li className="nav-item">
-            <Link className="nav-link" to="/admin">Admin Panel</Link>
+            <Link className="nav-link" to="/admin">ESP Mapping</Link>
           </li>
         </ul>
         <button className="btn btn-outline-light" onClick={handleLogout}>Logout</button>
@@ -29,5 +26,3 @@ function Navbar() {
     </nav>
   );
 }
-
-export default Navbar;

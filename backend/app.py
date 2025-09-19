@@ -10,7 +10,7 @@ CORS(app)
 app.secret_key = "change_this_secret"
 
 client = MongoClient("mongodb://localhost:27017")
-db = client["hospital_db"]
+db = client["temp_db"]
 admin_users = db["admin_users"]
 beacon_history = db["beacon_history"]
 beacon_latest = db["beacon_latest"]
@@ -96,19 +96,24 @@ def beacon_latest_view():
 
 @app.route("/api/bledata", methods=["POST"])
 def bledata():
-    global live_devices
+    global live_devices  # <-- add this line
     devices = request.get_json()
     if not isinstance(devices, list):
         return jsonify({"error": "Invalid data format"}), 400
+    
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    live_devices = []
+    if not hasattr(bledata, "live_devices_dict"):
+        bledata.live_devices_dict = {}
     for device in devices:
         mac = device["mac"].replace("-", ":").lower()
         device["mac"] = mac
         device["time"] = now_str
+
         mapping = esp_mapping.find_one({"esp_id": device.get("esp_id", "")})
         device["room"] = mapping["room"] if mapping else "ER"
-        live_devices.append(device.copy())
+        key = f"{mac}_{device.get('esp_id','')}"
+        bledata.live_devices_dict[key] = device.copy()
+
         if mac in TRACKED_BEACONS:
             beacon_history.insert_one({
                 "esp_id": device.get("esp_id", ""),
@@ -130,7 +135,9 @@ def bledata():
                 }},
                 upsert=True
             )
+    live_devices = list(bledata.live_devices_dict.values())  # <-- assign to global live_devices
     return jsonify({"status": "success", "received": len(devices)})
 
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False)
