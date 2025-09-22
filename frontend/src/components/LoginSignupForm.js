@@ -1,16 +1,13 @@
-// Import React, axios, and CSS
 import React, { useState } from "react";
 import axios from "axios";
 import "./LoginSignupForm.css";
 
-// LoginSignupForm handles login and signup forms
 function LoginSignupForm() {
-  const [mode, setMode] = useState("login"); // Track form mode
-  const [email, setEmail] = useState(""); // User email
-  const [password, setPassword] = useState(""); // User password
-  const [msg, setMsg] = useState(""); // Message to show
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [msg, setMsg] = useState("");
 
-  // Handle form submit for login/signup
   function handleSubmit(e) {
     e.preventDefault();
     setMsg("");
@@ -30,41 +27,39 @@ function LoginSignupForm() {
       .catch(err => setMsg(err.response?.data?.error || "Request failed"));
   }
 
-  // Render login/signup form UI
   return (
     <div className="form-bg">
       <div className="center-card">
-        <div className="tabs">
-          <button
-            className={mode === "login" ? "tab active" : "tab"}
-            onClick={() => setMode("login")}
-          >Login</button>
-          <button
-            className={mode === "signup" ? "tab active" : "tab"}
-            onClick={() => setMode("signup")}
-          >Signup</button>
-        </div>
+        {/* Removed tab switcher for a cleaner look */}
         <form className="auth-form" onSubmit={handleSubmit}>
-          <h2>{mode === "login" ? "Admin Login" : "Signup"}</h2>
+          <h2 style={{ fontSize: "2.1rem", fontWeight: 400, letterSpacing: "1px", marginBottom: "24px" }}>
+            {mode === "login" ? "ADMIN LOGIN" : "ADMIN SIGNUP"}
+          </h2>
           {msg && <div className="msg">{msg}</div>}
-          <input
-            className="form-input"
-            type="text"
-            placeholder="Email Address"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-          />
-          <input
-            className="form-input"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-          />
-          {mode === "login" && <a href="#" className="forgot-link">Forgot password?</a>}
-          <button className="main-btn" type="submit">
+          <div className="input-group">
+            <input
+              className="form-input"
+              type="text"
+              placeholder="Username"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+            />
+            <span className="input-icon"><i className="fa fa-user" /></span>
+          </div>
+          <div className="input-group">
+            <input
+              className="form-input"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+            />
+            <span className="input-icon"><i className="fa fa-lock" /></span>
+          </div>
+          {mode === "login" && <a href="#" className="forgot-link">Lost Password?</a>}
+          <button className="main-btn" type="submit" style={{ marginTop: "18px", fontSize: "1.15rem", borderRadius: "8px" }}>
             {mode === "login" ? "Login" : "Signup"}
           </button>
         </form>

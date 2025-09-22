@@ -1,34 +1,39 @@
 import { Link, useLocation } from "react-router-dom";
 
 const sidebarStyle = {
-  width: "220px",
+  width: "230px",
   minHeight: "100vh",
-  background: "#4e73df", // SB Admin blue
+  background: "#232e3c", // Professional dark sidebar
   color: "#fff",
   position: "fixed",
   left: 0,
   top: 0,
-  paddingTop: "25px",
+  paddingTop: "32px",
+  boxShadow: "2px 0 16px #0002",
+  zIndex: 100,
 };
 
 const activeStyle = {
-  background: "#f8f9fc", // SB Admin card bg
-  color: "#4e73df", // SB Admin blue text
+  background: "#1a2230",
+  color: "#4e73df",
   fontWeight: "bold",
-  borderRadius: "6px 0 0 6px"
+  borderLeft: "4px solid #4e73df",
+  borderRadius: "6px 0 0 6px",
 };
 
 const linkStyle = {
   display: "flex",
-  gap: "10px",
+  gap: "12px",
   alignItems: "center",
   color: "#fff",
-  padding: "15px 25px",
+  padding: "14px 28px",
   textDecoration: "none",
-  marginBottom: "4px",
+  marginBottom: "6px",
   borderLeft: "4px solid transparent",
   fontWeight: 500,
-  borderRadius: "6px 0 0 6px"
+  fontSize: "1.08rem",
+  borderRadius: "6px 0 0 6px",
+  transition: "background 0.2s, color 0.2s",
 };
 
 export default function Sidebar() {
@@ -38,14 +43,24 @@ export default function Sidebar() {
     <aside style={sidebarStyle}>
       <div style={{
         fontWeight: 700,
-        fontSize: "1.3rem",
-        padding: "0 25px 15px",
+        fontSize: "1.15rem",
+        padding: "0 28px 18px",
         letterSpacing: ".5px",
-        color: "#fff"
+        color: "#fff",
+        opacity: 0.85,
+        borderBottom: "1px solid #2c3542",
+        marginBottom: "18px"
       }}>
-        <span style={{ color: "#36b9cc" }}>BLE</span> Dashboard
+        MENU
       </div>
       <nav>
+        <div style={{
+          fontSize: "0.95rem",
+          fontWeight: 600,
+          color: "#bfc8d6",
+          padding: "0 28px 6px",
+          letterSpacing: ".2px"
+        }}>Dashboard</div>
         <Link
           to="/devices"
           style={{
@@ -55,6 +70,13 @@ export default function Sidebar() {
         >
           <span role="img" aria-label="devices">📡</span> Live Devices
         </Link>
+        <div style={{
+          fontSize: "0.95rem",
+          fontWeight: 600,
+          color: "#bfc8d6",
+          padding: "12px 28px 6px",
+          letterSpacing: ".2px"
+        }}>Components</div>
         <Link
           to="/admin"
           style={{
