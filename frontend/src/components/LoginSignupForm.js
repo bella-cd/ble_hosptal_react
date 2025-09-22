@@ -45,7 +45,7 @@ function LoginSignupForm() {
           >Signup</button>
         </div>
         <form className="auth-form" onSubmit={handleSubmit}>
-          <h2>{mode === "login" ? "Login Form" : "Signup Form"}</h2>
+          <h2>{mode === "login" ? "Admin Login" : "Signup"}</h2>
           {msg && <div className="msg">{msg}</div>}
           <input
             className="form-input"

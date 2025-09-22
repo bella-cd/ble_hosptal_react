@@ -25,6 +25,7 @@ TRACKED_BEACONS = {
 
 live_devices = []
 
+## Decorator to require 'X-User' header for authentication
 def auth_required(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
@@ -34,6 +35,7 @@ def auth_required(f):
         return f(*args, **kwargs)
     return wrapper
 
+## Endpoint to register a new admin user
 @app.route("/api/signup", methods=["POST"])
 def signup():
     data = request.json
@@ -47,6 +49,7 @@ def signup():
     })
     return jsonify({"status": "ok", "message": "Signup successful"})
 
+## Endpoint to authenticate and log in an admin user
 @app.route("/api/login", methods=["POST"])
 def login():
     data = request.json
@@ -57,6 +60,7 @@ def login():
         return jsonify({"error": "Invalid credentials"}), 401
     return jsonify({"status": "ok", "username": username})
 
+## Endpoint to add or get ESP-to-room mappings
 @app.route("/api/esp-mapping", methods=["GET", "POST"])
 @auth_required
 def esp_mapping_api():
@@ -71,50 +75,61 @@ def esp_mapping_api():
     rooms = list(esp_mapping.find({}, {"_id": 0}))
     return jsonify(rooms)
 
+## Endpoint to delete an ESP-to-room mapping
 @app.route("/api/delete-room/<esp_id>", methods=["DELETE"])
 @auth_required
 def delete_room(esp_id):
     esp_mapping.delete_one({"esp_id": esp_id})
     return jsonify({"status": "ok"})
 
+## Endpoint to get the current live BLE devices
 @app.route("/api/data", methods=["GET"])
 @auth_required
 def get_data():
     return jsonify(live_devices)
 
+## Endpoint to get the history of a specific beacon by MAC address
 @app.route("/api/beacon-history/<mac>", methods=["GET"])
 @auth_required
 def beacon_history_view(mac):
     history = list(beacon_history.find({"mac": mac.lower()}, {"_id": 0}).sort("time", -1))
     return jsonify(history)
 
+## Endpoint to get the latest data for all tracked beacons
 @app.route("/api/beacon-latest", methods=["GET"])
 @auth_required
 def beacon_latest_view():
     latest = list(beacon_latest.find({}, {"_id": 0}))
     return jsonify(latest)
 
+## Endpoint to receive BLE device data and update live device list, beacon history, and latest beacon info
 @app.route("/api/bledata", methods=["POST"])
 def bledata():
-    global live_devices  # <-- add this line
+    global live_devices  # Use global variable to store live devices
     devices = request.get_json()
+    # Validate that the incoming data is a list
     if not isinstance(devices, list):
         return jsonify({"error": "Invalid data format"}), 400
-    
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Current timestamp
+    # Initialize live_devices_dict if not already present
     if not hasattr(bledata, "live_devices_dict"):
         bledata.live_devices_dict = {}
     for device in devices:
+        # Normalize MAC address and add timestamp
         mac = device["mac"].replace("-", ":").lower()
         device["mac"] = mac
         device["time"] = now_str
 
+        # Find room mapping for ESP device
         mapping = esp_mapping.find_one({"esp_id": device.get("esp_id", "")})
         device["room"] = mapping["room"] if mapping else "ER"
         key = f"{mac}_{device.get('esp_id','')}"
         bledata.live_devices_dict[key] = device.copy()
 
+        # If device is a tracked beacon, update history and latest info
         if mac in TRACKED_BEACONS:
+            # Add entry to beacon history collection
             beacon_history.insert_one({
                 "esp_id": device.get("esp_id", ""),
                 "esp_name": device.get("esp_name", ""),
@@ -123,6 +138,7 @@ def bledata():
                 "rssi": device.get("rssi", ""),
                 "time": now_str,
             })
+            # Update latest beacon info for this MAC
             beacon_latest.update_one(
                 {"mac": mac},
                 {"$set": {
@@ -135,7 +151,9 @@ def bledata():
                 }},
                 upsert=True
             )
-    live_devices = list(bledata.live_devices_dict.values())  # <-- assign to global live_devices
+    # Update global live_devices list with latest data
+    live_devices = list(bledata.live_devices_dict.values())
+    # Return success response with count of received devices
     return jsonify({"status": "success", "received": len(devices)})
 
 
