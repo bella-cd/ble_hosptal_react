@@ -10,18 +10,14 @@ CORS(app)
 app.secret_key = "change_this_secret"
 
 client = MongoClient("mongodb://localhost:27017")
-db = client["temp_db"]
+db = client["temp1_db"]
 admin_users = db["admin_users"]
 beacon_history = db["beacon_history"]
 beacon_latest = db["beacon_latest"]
 esp_mapping = db["esp_mapping"]
+beacon_whitelist = db["beacon_whitelist"]  # NEW: Beacon whitelist collection
 
 beacon_latest.create_index("mac", unique=True)
-TRACKED_BEACONS = {
-    "c3:00:00:13:3b:b7",
-    "c3:00:00:13:3b:f2",
-    "c3:00:00:13:3c:1e"
-}
 
 live_devices = []
 
@@ -59,6 +55,28 @@ def login():
     if not user or not check_password_hash(user["password"], password):
         return jsonify({"error": "Invalid credentials"}), 401
     return jsonify({"status": "ok", "username": username})
+
+## Whitelist API (Add, List, Remove beacons)
+@app.route("/api/whitelist", methods=["GET", "POST"])
+@auth_required
+def whitelist():
+    if request.method == "POST":
+        data = request.json
+        mac = data.get("mac", "").lower()
+        if not mac:
+            return jsonify({"error": "No MAC specified"}), 400
+        if beacon_whitelist.find_one({"mac": mac}):
+            return jsonify({"error": "MAC already whitelisted"}), 400
+        beacon_whitelist.insert_one({"mac": mac})
+        return jsonify({"status": "ok"})
+    wl = list(beacon_whitelist.find({}, {"_id": 0}))
+    return jsonify(wl)
+
+@app.route("/api/whitelist/<mac>", methods=["DELETE"])
+@auth_required
+def delete_whitelist(mac):
+    beacon_whitelist.delete_one({"mac": mac.lower()})
+    return jsonify({"status": "ok"})
 
 ## Endpoint to add or get ESP-to-room mappings
 @app.route("/api/esp-mapping", methods=["GET", "POST"])
@@ -107,29 +125,24 @@ def beacon_latest_view():
 def bledata():
     global live_devices  # Use global variable to store live devices
     devices = request.get_json()
-    # Validate that the incoming data is a list
     if not isinstance(devices, list):
         return jsonify({"error": "Invalid data format"}), 400
 
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Current timestamp
-    # Initialize live_devices_dict if not already present
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if not hasattr(bledata, "live_devices_dict"):
         bledata.live_devices_dict = {}
     for device in devices:
-        # Normalize MAC address and add timestamp
         mac = device["mac"].replace("-", ":").lower()
         device["mac"] = mac
         device["time"] = now_str
 
-        # Find room mapping for ESP device
         mapping = esp_mapping.find_one({"esp_id": device.get("esp_id", "")})
         device["room"] = mapping["room"] if mapping else "unknown"
         key = f"{mac}_{device.get('esp_id','')}"
         bledata.live_devices_dict[key] = device.copy()
 
-        # If device is a tracked beacon, update history and latest info
-        if mac in TRACKED_BEACONS:
-            # Add entry to beacon history collection
+        # --- USE WHITELIST INSTEAD OF TRACKED_BEACONS ---
+        if beacon_whitelist.find_one({"mac": mac}):
             beacon_history.insert_one({
                 "esp_id": device.get("esp_id", ""),
                 "esp_name": device.get("esp_name", ""),
@@ -138,7 +151,6 @@ def bledata():
                 "rssi": device.get("rssi", ""),
                 "time": now_str,
             })
-            # Update latest beacon info for this MAC
             beacon_latest.update_one(
                 {"mac": mac},
                 {"$set": {
@@ -151,11 +163,8 @@ def bledata():
                 }},
                 upsert=True
             )
-    # Update global live_devices list with latest data
     live_devices = list(bledata.live_devices_dict.values())
-    # Return success response with count of received devices
     return jsonify({"status": "success", "received": len(devices)})
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)

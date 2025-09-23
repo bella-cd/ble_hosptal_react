@@ -1,9 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
+import { FaTachometerAlt, FaListAlt, FaShieldAlt } from "react-icons/fa";
 
 const sidebarStyle = {
   width: "230px",
   minHeight: "100vh",
-  background: "#232e3c", // Professional dark sidebar
+  background: "#232e3c",
   color: "#fff",
   position: "fixed",
   left: 0,
@@ -41,26 +42,33 @@ export default function Sidebar() {
 
   return (
     <aside style={sidebarStyle}>
-      <div style={{
-        fontWeight: 700,
-        fontSize: "1.15rem",
-        padding: "0 28px 18px",
-        letterSpacing: ".5px",
-        color: "#fff",
-        opacity: 0.85,
-        borderBottom: "1px solid #2c3542",
-        marginBottom: "18px"
-      }}>
+      <div
+        style={{
+          fontWeight: 700,
+          fontSize: "1.15rem",
+          padding: "0 28px 18px",
+          letterSpacing: ".5px",
+          color: "#fff",
+          opacity: 0.85,
+          borderBottom: "1px solid #2c3542",
+          marginBottom: "18px",
+        }}
+      >
         MENU
       </div>
       <nav>
-        <div style={{
-          fontSize: "0.95rem",
-          fontWeight: 600,
-          color: "#bfc8d6",
-          padding: "0 28px 6px",
-          letterSpacing: ".2px"
-        }}>Dashboard</div>
+        <div
+          style={{
+            fontSize: "0.95rem",
+            fontWeight: 600,
+            color: "#bfc8d6",
+            padding: "0 28px 6px",
+            letterSpacing: ".2px",
+          }}
+        >
+          Dashboard
+        </div>
+
         <Link
           to="/devices"
           style={{
@@ -68,15 +76,22 @@ export default function Sidebar() {
             ...(location.pathname === "/devices" ? activeStyle : {}),
           }}
         >
-          <span role="img" aria-label="devices">📡</span> Live Devices
+          <FaTachometerAlt size={20} />
+          Live Devices
         </Link>
-        <div style={{
-          fontSize: "0.95rem",
-          fontWeight: 600,
-          color: "#bfc8d6",
-          padding: "12px 28px 6px",
-          letterSpacing: ".2px"
-        }}>Components</div>
+
+        <div
+          style={{
+            fontSize: "0.95rem",
+            fontWeight: 600,
+            color: "#bfc8d6",
+            padding: "12px 28px 6px",
+            letterSpacing: ".2px",
+          }}
+        >
+          Components
+        </div>
+
         <Link
           to="/admin"
           style={{
@@ -84,7 +99,19 @@ export default function Sidebar() {
             ...(location.pathname === "/admin" ? activeStyle : {}),
           }}
         >
-          <span role="img" aria-label="admin">⚙️</span> ESP Mapping
+          <FaListAlt size={20} />
+          ESP Mapping
+        </Link>
+
+        <Link
+          to="/whitelist"
+          style={{
+            ...linkStyle,
+            ...(location.pathname === "/whitelist" ? activeStyle : {}),
+          }}
+        >
+          <FaShieldAlt size={20} />
+          Whitelist
         </Link>
       </nav>
     </aside>
