@@ -26,15 +26,7 @@ export default function Navbar() {
 
       <div className="collapse navbar-collapse">
         <ul className="navbar-nav me-auto">
-          <li className="nav-item">
-            <Link className="nav-link" to="/devices">Live Devices</Link>
-          </li>
-          <li className="nav-item">
-            <Link className="nav-link" to="/admin">ESP Mapping</Link>
-          </li>
-          <li className="nav-item">
-            <Link className="nav-link" to="/whitelist">Whitelist</Link>
-          </li>
+          {/* Navigation links removed as requested */}
         </ul>
         <button className="btn" style={{ background: '#f6c23e', color: '#fff', fontWeight: 600 }} onClick={handleLogout}>Logout</button>
       </div>
