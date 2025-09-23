@@ -22,7 +22,7 @@ export default function Navbar() {
         alignItems: 'center',
       }}
     >
-      <Link className="navbar-brand" to="/devices" style={{ color: '#4e73df', fontWeight: 700, fontSize: '1.35rem' }}>BLE Dashboard</Link>
+      <Link className="navbar-brand" to="/devices" style={{ color: '#4e73df', fontWeight: 700, fontSize: '1.35rem' }}>Hospital BLE Tracking Dashboard</Link>
 
       <div className="collapse navbar-collapse">
         <ul className="navbar-nav me-auto">
