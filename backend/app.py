@@ -123,7 +123,7 @@ def bledata():
 
         # Find room mapping for ESP device
         mapping = esp_mapping.find_one({"esp_id": device.get("esp_id", "")})
-        device["room"] = mapping["room"] if mapping else "ER"
+        device["room"] = mapping["room"] if mapping else "unknown"
         key = f"{mac}_{device.get('esp_id','')}"
         bledata.live_devices_dict[key] = device.copy()
 
