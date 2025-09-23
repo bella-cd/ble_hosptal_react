@@ -32,6 +32,9 @@ export default function Navbar() {
           <li className="nav-item">
             <Link className="nav-link" to="/admin">ESP Mapping</Link>
           </li>
+          <li className="nav-item">
+            <Link className="nav-link" to="/whitelist">Whitelist</Link>
+          </li>
         </ul>
         <button className="btn" style={{ background: '#f6c23e', color: '#fff', fontWeight: 600 }} onClick={handleLogout}>Logout</button>
       </div>
