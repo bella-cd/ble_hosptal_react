@@ -3,9 +3,10 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient, ASCENDING
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import functools
+import secrets
 
 # Initialize Flask app and enable CORS
 app = Flask(__name__)
@@ -65,6 +66,42 @@ def login():
     if not user or not check_password_hash(user["password"], password):
         return jsonify({"error": "Invalid credentials"}), 401
     return jsonify({"status": "ok", "username": username})
+
+# Password recovery (forgot password)
+@app.route("/api/forgot-password", methods=["POST"])
+def forgot_password():
+    data = request.json
+    username = data.get("username", "").strip().lower()
+    user = admin_users.find_one({"username": username})
+    # Always respond with generic message
+    if not user:
+        return jsonify({"message": "If the account exists, a reset email will be sent."}), 200
+    # Generate secure token and expiry (1 hour from now)
+    token = secrets.token_urlsafe(48)
+    expiry = datetime.utcnow() + timedelta(hours=1)
+    admin_users.update_one(
+        {"username": username},
+        {"$set": {"reset_token": token, "reset_expiry": expiry}}
+    )
+    # Print the reset link for now (replace with email in production)
+    print(f"Password reset link: http://localhost:3000/reset-password?token={token}")
+    return jsonify({"message": "If the account exists, a reset email will be sent."}), 200
+
+# Password reset endpoint
+@app.route("/api/reset-password", methods=["POST"])
+def reset_password():
+    data = request.json
+    token = data.get("token")
+    new_password = data.get("password")
+    user = admin_users.find_one({"reset_token": token})
+    if not user or "reset_expiry" not in user or user["reset_expiry"] < datetime.utcnow():
+        return jsonify({"error": "Invalid or expired token"}), 400
+    admin_users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"password": generate_password_hash(new_password)},
+         "$unset": {"reset_token": "", "reset_expiry": ""}}
+    )
+    return jsonify({"status": "ok", "message": "Password reset successful"})
 
 # Whitelist management endpoint (add/get MAC addresses)
 @app.route("/api/whitelist", methods=["GET", "POST"])
