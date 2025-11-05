@@ -1,3 +1,6 @@
+#==============================================================================
+# SECTION 1: IMPORTS AND INITIALIZATION
+#==============================================================================
 # Import required libraries
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -8,11 +11,15 @@ import pytz
 import functools
 import secrets
 
+#------------------------------------------------------------------------------
 # Initialize Flask app and enable CORS
 app = Flask(__name__)
 CORS(app)
 app.secret_key = "change_this_secret"
 
+#==============================================================================
+# SECTION 2: DATABASE CONFIGURATION
+#==============================================================================
 # Connect to MongoDB and define collections
 client = MongoClient("mongodb://localhost:27017")
 db = client["temp1_db"]
@@ -22,6 +29,7 @@ beacon_latest = db["beacon_latest"]
 esp_mapping = db["esp_mapping"]
 beacon_whitelist = db["beacon_whitelist"]
 
+#------------------------------------------------------------------------------
 # Create indexes for faster queries
 beacon_latest.create_index("mac", unique=True)
 beacon_history.create_index([("mac", ASCENDING), ("time", ASCENDING)])
@@ -32,6 +40,9 @@ live_devices = []
 # Set local timezone for timestamps
 LOCAL_TIMEZONE = pytz.timezone("Europe/Lisbon")
 
+#==============================================================================
+# SECTION 3: AUTHENTICATION MIDDLEWARE
+#==============================================================================
 # Decorator for authentication on protected routes
 def auth_required(f):
     @functools.wraps(f)
@@ -42,6 +53,9 @@ def auth_required(f):
         return f(*args, **kwargs)
     return wrapper
 
+#==============================================================================
+# SECTION 4: USER AUTHENTICATION ENDPOINTS
+#==============================================================================
 # User signup endpoint
 @app.route("/api/signup", methods=["POST"])
 def signup():
@@ -103,6 +117,9 @@ def reset_password():
     )
     return jsonify({"status": "ok", "message": "Password reset successful"})
 
+#==============================================================================
+# SECTION 5: DEVICE WHITELIST MANAGEMENT
+#==============================================================================
 # Whitelist management endpoint (add/get MAC addresses)
 @app.route("/api/whitelist", methods=["GET", "POST"])
 @auth_required
@@ -127,6 +144,9 @@ def delete_whitelist(mac):
     beacon_whitelist.delete_one({"mac": mac})
     return jsonify({"status": "ok"})
 
+#==============================================================================
+# SECTION 6: ESP ROOM MAPPING MANAGEMENT
+#==============================================================================
 # ESP mapping endpoint (add/get ESP to room mapping)
 @app.route("/api/esp-mapping", methods=["GET", "POST"])
 @auth_required
@@ -149,6 +169,9 @@ def delete_room(esp_id):
     esp_mapping.delete_one({"esp_id": esp_id})
     return jsonify({"status": "ok"})
 
+#==============================================================================
+# SECTION 7: DEVICE DATA ENDPOINTS
+#==============================================================================
 # Get current live device data
 @app.route("/api/data", methods=["GET"])
 @auth_required
@@ -170,6 +193,9 @@ def beacon_latest_view():
     latest = list(beacon_latest.find({}, {"_id": 0}))
     return jsonify(latest)
 
+#==============================================================================
+# SECTION 8: BLE DATA INGESTION
+#==============================================================================
 # BLE data ingestion endpoint (receives device data from ESPs)
 @app.route("/api/bledata", methods=["POST"])
 def bledata():
@@ -232,6 +258,9 @@ def bledata():
     # Return success response with count of received devices
     return jsonify({"status": "success", "received": len(devices)})
 
+#==============================================================================
+# SECTION 9: APPLICATION ENTRY POINT
+#==============================================================================
 # Run the Flask app
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
