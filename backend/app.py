@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import pytz
 import functools
 import secrets
+import requests
 
 #------------------------------------------------------------------------------
 # Initialize Flask app and enable CORS
@@ -193,6 +194,9 @@ def beacon_latest_view():
     latest = list(beacon_latest.find({}, {"_id": 0}))
     return jsonify(latest)
 
+# Store beacon locations to track changes
+beacon_locations = {}
+
 #==============================================================================
 # SECTION 8: BLE DATA INGESTION
 #==============================================================================
@@ -200,6 +204,8 @@ def beacon_latest_view():
 @app.route("/api/bledata", methods=["POST"])
 def bledata():
     global live_devices
+    global beacon_locations
+    
     # Get device data from POST request
     devices = request.get_json()
     # Validate that the data is a list
@@ -253,6 +259,47 @@ def bledata():
                 }},
                 upsert=True
             )
+            
+            # Send to Mirth only if:
+            # 1. Beacon is new (first time seeing it)
+            # 2. OR beacon location (room) has changed
+            should_send_to_mirth = False
+            
+            if mac not in beacon_locations:
+                # First time seeing this beacon
+                should_send_to_mirth = True
+                print(f"✓ New beacon detected: {mac} in {device['room']}")
+            elif beacon_locations[mac] != device["room"]:
+                # Beacon moved to a different room
+                old_room = beacon_locations[mac]
+                should_send_to_mirth = True
+                print(f"✓ Beacon {mac} moved from {old_room} to {device['room']}")
+            
+            # Update the stored location
+            beacon_locations[mac] = device["room"]
+            
+            # Send to Mirth if there's a change
+            if should_send_to_mirth:
+                try:
+                    mirth_url = "http://192.168.1.117:6661"
+                    mirth_message = {
+                        "esp_id": device.get("esp_id", ""),
+                        "esp_name": device.get("esp_name", ""),
+                        "room": device["room"],
+                        "mac": mac,
+                        "rssi": device.get("rssi", ""),
+                        "time": now_str,
+                    }
+                    requests.post(
+                        mirth_url,
+                        json=mirth_message,
+                        timeout=5,
+                        headers={'Content-Type': 'application/json'}
+                    )
+                    print(f"✓ Sent beacon {mac} to Mirth")
+                except requests.exceptions.RequestException as e:
+                    print(f"✗ Failed to send beacon {mac} to Mirth: {str(e)}")
+    
     # Update global live_devices list with current device states
     live_devices = list(bledata.live_devices_dict.values())
     # Return success response with count of received devices

@@ -14,7 +14,7 @@
   "scripts": {
     "start": "react-scripts start"
   },
-  "proxy": "http://172.29.130.126:5000",
+  "proxy": "http://172.29.132.101:5000",
   "browserslist": {
     "production": [
       ">0.2%",
