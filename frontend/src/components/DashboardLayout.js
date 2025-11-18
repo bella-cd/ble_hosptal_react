@@ -5,6 +5,7 @@ import Navbar from "./Navbar";
 import Devices from "./Devices";
 import AdminPanel from "./AdminPanel";
 import WhitelistAdmin from "./WhitelistAdmin";
+import BeaconManagement from "./BeaconManagement";
 import RequireAuth from "./RequireAuth";
 
 function DashboardLayout() {
@@ -36,6 +37,14 @@ function DashboardLayout() {
               element={
                 <RequireAuth>
                   <WhitelistAdmin />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/beacons"
+              element={
+                <RequireAuth>
+                  <BeaconManagement />
                 </RequireAuth>
               }
             />

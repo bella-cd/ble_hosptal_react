@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { FaTachometerAlt, FaListAlt, FaShieldAlt } from "react-icons/fa";
+import { FaTachometerAlt, FaListAlt, FaShieldAlt, FaSignal } from "react-icons/fa";
 
 const sidebarStyle = {
   width: "230px",
@@ -112,6 +112,17 @@ export default function Sidebar() {
         >
           <FaShieldAlt size={20} />
           Whitelist
+        </Link>
+
+        <Link
+          to="/beacons"
+          style={{
+            ...linkStyle,
+            ...(location.pathname === "/beacons" ? activeStyle : {}),
+          }}
+        >
+          <FaSignal size={20} />
+          Mirth 
         </Link>
       </nav>
     </aside>

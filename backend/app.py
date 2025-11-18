@@ -194,8 +194,114 @@ def beacon_latest_view():
     latest = list(beacon_latest.find({}, {"_id": 0}))
     return jsonify(latest)
 
+# Send active beacons to Mirth (manual trigger from frontend)
+@app.route("/api/send-active-beacons-to-mirth", methods=["POST"])
+@auth_required
+def send_active_beacons_to_mirth():
+    """Send all currently active beacons to Mirth (only once per location change)"""
+    global manually_sent_beacons
+    
+    try:
+        # Get all active beacons from beacon_latest
+        active_beacons = list(beacon_latest.find({}, {"_id": 0}))
+        
+        if not active_beacons:
+            return jsonify({
+                "status": "success",
+                "message": "No active beacons to send",
+                "sent_count": 0
+            })
+        
+        sent_count = 0
+        failed_count = 0
+        already_sent_count = 0
+        mirth_url = "http://192.168.1.117:6661"
+        
+        # Send each active beacon to Mirth (only if not already sent at this location)
+        for beacon in active_beacons:
+            mac = beacon.get("mac", "")
+            room = beacon.get("room", "")
+            beacon_room_key = f"{mac}_{room}"
+            
+            # Check if this beacon was already sent at this location
+            if beacon_room_key in manually_sent_beacons:
+                already_sent_count += 1
+                print(f"⊘ Beacon {mac} already sent at {room}, skipping")
+                continue
+            
+            try:
+                mirth_message = {
+                    "esp_id": beacon.get("esp_id", ""),
+                    "esp_name": beacon.get("esp_name", ""),
+                    "room": room,
+                    "mac": mac,
+                    "rssi": beacon.get("rssi", ""),
+                    "time": beacon.get("time", ""),
+                }
+                
+                requests.post(
+                    mirth_url,
+                    json=mirth_message,
+                    timeout=5,
+                    headers={'Content-Type': 'application/json'}
+                )
+                
+                # Mark this beacon as sent at this location
+                manually_sent_beacons[beacon_room_key] = True
+                sent_count += 1
+                print(f"✓ Manually sent beacon {mac} at {room} to Mirth")
+            except requests.exceptions.RequestException as e:
+                failed_count += 1
+                print(f"✗ Failed to send beacon {mac} to Mirth: {str(e)}")
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Sent {sent_count} beacons to Mirth ({already_sent_count} already sent)",
+            "sent_count": sent_count,
+            "already_sent_count": already_sent_count,
+            "failed_count": failed_count,
+            "total_beacons": len(active_beacons)
+        })
+    
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e)
+        }), 500
+
+# Get all beacons (active and inactive)
+@app.route("/api/all-beacons", methods=["GET"])
+@auth_required
+def get_all_beacons():
+    """Get all whitelisted beacons (both active and inactive)"""
+    try:
+        # Get all whitelisted beacons
+        whitelisted = list(beacon_whitelist.find({}, {"_id": 0}))
+        
+        # Get all active beacons
+        active_beacons = list(beacon_latest.find({}, {"_id": 0}))
+        active_macs = {b.get("mac") for b in active_beacons}
+        
+        # Categorize beacons
+        active = [b for b in active_beacons]
+        inactive = [b for b in whitelisted if b.get("mac") not in active_macs]
+        
+        return jsonify({
+            "active": active,
+            "inactive": inactive,
+            "total_active": len(active),
+            "total_inactive": len(inactive)
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e)
+        }), 500
+
 # Store beacon locations to track changes
 beacon_locations = {}
+# Track which beacons were sent via manual button (to avoid duplicates)
+manually_sent_beacons = {}
 
 #==============================================================================
 # SECTION 8: BLE DATA INGESTION
@@ -205,6 +311,7 @@ beacon_locations = {}
 def bledata():
     global live_devices
     global beacon_locations
+    global manually_sent_beacons
     
     # Get device data from POST request
     devices = request.get_json()
@@ -273,6 +380,13 @@ def bledata():
                 # Beacon moved to a different room
                 old_room = beacon_locations[mac]
                 should_send_to_mirth = True
+                old_key = f"{mac}_{old_room}"
+                new_key = f"{mac}_{device['room']}"
+                
+                # Remove old location from manually_sent_beacons so it can be sent again at new location
+                if old_key in manually_sent_beacons:
+                    del manually_sent_beacons[old_key]
+                
                 print(f"✓ Beacon {mac} moved from {old_room} to {device['room']}")
             
             # Update the stored location
@@ -296,7 +410,10 @@ def bledata():
                         timeout=5,
                         headers={'Content-Type': 'application/json'}
                     )
-                    print(f"✓ Sent beacon {mac} to Mirth")
+                    # Mark as sent for this location (automatic send)
+                    beacon_room_key = f"{mac}_{device['room']}"
+                    manually_sent_beacons[beacon_room_key] = True
+                    print(f"✓ Sent beacon {mac} to Mirth (automatic)")
                 except requests.exceptions.RequestException as e:
                     print(f"✗ Failed to send beacon {mac} to Mirth: {str(e)}")
     
