@@ -11,7 +11,6 @@ export default function BeaconManagement() {
   // Load beacons on mount
   useEffect(() => {
     loadBeacons();
-    // Refresh beacons every 5 seconds
     const interval = setInterval(loadBeacons, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -26,21 +25,16 @@ export default function BeaconManagement() {
       setActiveBeacons(data.active || []);
       setInactiveBeacons(data.inactive || []);
       
-      // Check if any beacons changed location - if so, clear that beacon's sent status
-        setSentBeacons(prevSentBeacons => {
-          const updatedSentBeacons = { ...prevSentBeacons };
-          (data.active || []).forEach(beacon => {
-            const mac = beacon.mac;
-            const room = beacon.room;
-            // If beacon was previously sent but at a different room, clear it
-            Object.keys(updatedSentBeacons).forEach(key => {
-              if (key.startsWith(mac + '_') && key !== `${mac}_${room}`) {
-                delete updatedSentBeacons[key];
-              }
-            });
-          });
-          return updatedSentBeacons;
-        });
+   setSentBeacons(prevSentBeacons => {
+  // Only keep keys found in the current active beacons
+  const validKeys = new Set((data.active || []).map(b => `${b.mac}_${b.room}`));
+  const newSent = {};
+  Object.keys(prevSentBeacons).forEach(key => {
+    if (validKeys.has(key)) newSent[key] = true;
+  });
+  return newSent;
+});
+
     } catch (err) {
       console.error('Error loading beacons:', err);
       setMessage('Error loading beacons');
@@ -84,18 +78,14 @@ export default function BeaconManagement() {
       });
       const data = await res.json();
       
-      if (data.status === 'success') {
-        // Update sent beacons tracking
-        setSentBeacons({ ...sentBeacons, ...newlySentBeacons });
-        const msg = countAlreadySent > 0 
-          ? `✓ Sent ${data.sent_count} new beacons to Mirth (${countAlreadySent} already sent)`
-          : `✓ Successfully sent ${data.sent_count} active beacons to Mirth`;
-        setMessage(msg);
-        setMessageType('success');
-      } else {
-        setMessage('✗ Error sending beacons to Mirth');
-        setMessageType('danger');
-      }
+if (data.status === 'success') {
+  setSentBeacons(prev => ({ ...prev, ...newlySentBeacons }));
+  setMessage('✓ Successfully sent active beacons to Mirth');
+  setMessageType('success');
+} else {
+  setMessage('✗ Error sending beacons to Mirth');
+  setMessageType('danger');
+}
       
       setTimeout(() => setMessage(''), 4000);
     } catch (err) {
@@ -111,7 +101,6 @@ export default function BeaconManagement() {
   return (
     <div className="card p-4" style={{ maxWidth: "900px", margin: "auto" }}>
       <h2>Beacon Management</h2>
-      
       <div className="mb-3">
         <button
           onClick={sendActiveBeaconsToMirth}

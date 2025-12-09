@@ -1,7 +1,6 @@
 #==============================================================================
 # SECTION 1: IMPORTS AND INITIALIZATION
 #==============================================================================
-# Import required libraries
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient, ASCENDING
@@ -21,7 +20,6 @@ app.secret_key = "change_this_secret"
 #==============================================================================
 # SECTION 2: DATABASE CONFIGURATION
 #==============================================================================
-# Connect to MongoDB and define collections
 client = MongoClient("mongodb://localhost:27017")
 db = client["temp1_db"]
 admin_users = db["admin_users"]
@@ -30,21 +28,21 @@ beacon_latest = db["beacon_latest"]
 esp_mapping = db["esp_mapping"]
 beacon_whitelist = db["beacon_whitelist"]
 
-#------------------------------------------------------------------------------
-# Create indexes for faster queries
 beacon_latest.create_index("mac", unique=True)
 beacon_history.create_index([("mac", ASCENDING), ("time", ASCENDING)])
 
-# Store live device data in memory
 live_devices = []
-
-# Set local timezone for timestamps
 LOCAL_TIMEZONE = pytz.timezone("Europe/Lisbon")
+
+#============================================================================== 
+# BEACON LOCATION AND SENT STATUS STATE
+#==============================================================================
+beacon_locations = {}
+manually_sent_beacons = {}
 
 #==============================================================================
 # SECTION 3: AUTHENTICATION MIDDLEWARE
 #==============================================================================
-# Decorator for authentication on protected routes
 def auth_required(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
@@ -57,7 +55,7 @@ def auth_required(f):
 #==============================================================================
 # SECTION 4: USER AUTHENTICATION ENDPOINTS
 #==============================================================================
-# User signup endpoint
+
 @app.route("/api/signup", methods=["POST"])
 def signup():
     data = request.json
@@ -71,7 +69,6 @@ def signup():
     })
     return jsonify({"status": "ok", "message": "Signup successful"})
 
-# User login endpoint
 @app.route("/api/login", methods=["POST"])
 def login():
     data = request.json
@@ -82,7 +79,6 @@ def login():
         return jsonify({"error": "Invalid credentials"}), 401
     return jsonify({"status": "ok", "username": username})
 
-# Password recovery (forgot password)
 @app.route("/api/forgot-password", methods=["POST"])
 def forgot_password():
     data = request.json
@@ -91,18 +87,15 @@ def forgot_password():
     # Always respond with generic message
     if not user:
         return jsonify({"message": "If the account exists, a reset email will be sent."}), 200
-    # Generate secure token and expiry (1 hour from now)
     token = secrets.token_urlsafe(48)
     expiry = datetime.utcnow() + timedelta(hours=1)
     admin_users.update_one(
         {"username": username},
         {"$set": {"reset_token": token, "reset_expiry": expiry}}
     )
-    # Print the reset link for now (replace with email in production)
     print(f"Password reset link: http://localhost:3000/reset-password?token={token}")
     return jsonify({"message": "If the account exists, a reset email will be sent."}), 200
 
-# Password reset endpoint
 @app.route("/api/reset-password", methods=["POST"])
 def reset_password():
     data = request.json
@@ -121,7 +114,6 @@ def reset_password():
 #==============================================================================
 # SECTION 5: DEVICE WHITELIST MANAGEMENT
 #==============================================================================
-# Whitelist management endpoint (add/get MAC addresses)
 @app.route("/api/whitelist", methods=["GET", "POST"])
 @auth_required
 def whitelist():
@@ -137,7 +129,6 @@ def whitelist():
     wl = list(beacon_whitelist.find({}, {"_id": 0}))
     return jsonify(wl)
 
-# Remove MAC address from whitelist
 @app.route("/api/whitelist/<mac>", methods=["DELETE"])
 @auth_required
 def delete_whitelist(mac):
@@ -148,7 +139,6 @@ def delete_whitelist(mac):
 #==============================================================================
 # SECTION 6: ESP ROOM MAPPING MANAGEMENT
 #==============================================================================
-# ESP mapping endpoint (add/get ESP to room mapping)
 @app.route("/api/esp-mapping", methods=["GET", "POST"])
 @auth_required
 def esp_mapping_api():
@@ -163,7 +153,6 @@ def esp_mapping_api():
     rooms = list(esp_mapping.find({}, {"_id": 0}))
     return jsonify(rooms)
 
-# Remove ESP room mapping
 @app.route("/api/delete-room/<esp_id>", methods=["DELETE"])
 @auth_required
 def delete_room(esp_id):
@@ -173,13 +162,11 @@ def delete_room(esp_id):
 #==============================================================================
 # SECTION 7: DEVICE DATA ENDPOINTS
 #==============================================================================
-# Get current live device data
 @app.route("/api/data", methods=["GET"])
 @auth_required
 def get_data():
     return jsonify(live_devices)
 
-# Get beacon history for a specific MAC address
 @app.route("/api/beacon-history/<mac>", methods=["GET"])
 @auth_required
 def beacon_history_view(mac):
@@ -187,164 +174,54 @@ def beacon_history_view(mac):
     history = list(beacon_history.find({"mac": mac}, {"_id": 0}).sort("time", -1))
     return jsonify(history)
 
-# Get latest beacon data for all devices
 @app.route("/api/beacon-latest", methods=["GET"])
 @auth_required
 def beacon_latest_view():
     latest = list(beacon_latest.find({}, {"_id": 0}))
     return jsonify(latest)
 
-# Send active beacons to Mirth (manual trigger from frontend)
-@app.route("/api/send-active-beacons-to-mirth", methods=["POST"])
-@auth_required
-def send_active_beacons_to_mirth():
-    """Send all currently active beacons to Mirth (only once per location change)"""
-    global manually_sent_beacons
-    
-    try:
-        # Get all active beacons from beacon_latest
-        active_beacons = list(beacon_latest.find({}, {"_id": 0}))
-        
-        if not active_beacons:
-            return jsonify({
-                "status": "success",
-                "message": "No active beacons to send",
-                "sent_count": 0
-            })
-        
-        sent_count = 0
-        failed_count = 0
-        already_sent_count = 0
-        mirth_url = "http://192.168.1.117:6661"
-        
-        # Send each active beacon to Mirth (only if not already sent at this location)
-        for beacon in active_beacons:
-            mac = beacon.get("mac", "")
-            room = beacon.get("room", "")
-            beacon_room_key = f"{mac}_{room}"
-            
-            # Check if this beacon was already sent at this location
-            if beacon_room_key in manually_sent_beacons:
-                already_sent_count += 1
-                print(f"⊘ Beacon {mac} already sent at {room}, skipping")
-                continue
-            
-            try:
-                mirth_message = {
-                    "esp_id": beacon.get("esp_id", ""),
-                    "esp_name": beacon.get("esp_name", ""),
-                    "room": room,
-                    "mac": mac,
-                    "rssi": beacon.get("rssi", ""),
-                    "time": beacon.get("time", ""),
-                }
-                
-                requests.post(
-                    mirth_url,
-                    json=mirth_message,
-                    timeout=5,
-                    headers={'Content-Type': 'application/json'}
-                )
-                
-                # Mark this beacon as sent at this location
-                manually_sent_beacons[beacon_room_key] = True
-                sent_count += 1
-                print(f"✓ Manually sent beacon {mac} at {room} to Mirth")
-            except requests.exceptions.RequestException as e:
-                failed_count += 1
-                print(f"✗ Failed to send beacon {mac} to Mirth: {str(e)}")
-        
-        return jsonify({
-            "status": "success",
-            "message": f"Sent {sent_count} beacons to Mirth ({already_sent_count} already sent)",
-            "sent_count": sent_count,
-            "already_sent_count": already_sent_count,
-            "failed_count": failed_count,
-            "total_beacons": len(active_beacons)
-        })
-    
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "error": str(e)
-        }), 500
-
-# Get all beacons (active and inactive)
 @app.route("/api/all-beacons", methods=["GET"])
 @auth_required
 def get_all_beacons():
-    """Get all whitelisted beacons (both active and inactive)"""
-    try:
-        # Get all whitelisted beacons
-        whitelisted = list(beacon_whitelist.find({}, {"_id": 0}))
-        
-        # Get all active beacons
-        active_beacons = list(beacon_latest.find({}, {"_id": 0}))
-        active_macs = {b.get("mac") for b in active_beacons}
-        
-        # Categorize beacons
-        active = [b for b in active_beacons]
-        inactive = [b for b in whitelisted if b.get("mac") not in active_macs]
-        
-        return jsonify({
-            "active": active,
-            "inactive": inactive,
-            "total_active": len(active),
-            "total_inactive": len(inactive)
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "error": str(e)
-        }), 500
-
-# Store beacon locations to track changes
-beacon_locations = {}
-# Track which beacons were sent via manual button (to avoid duplicates)
-manually_sent_beacons = {}
+    whitelisted = list(beacon_whitelist.find({}, {"_id": 0}))
+    active_beacons = list(beacon_latest.find({}, {"_id": 0}))
+    active_macs = {b.get("mac") for b in active_beacons}
+    active = [b for b in active_beacons]
+    inactive = [b for b in whitelisted if b.get("mac") not in active_macs]
+    return jsonify({
+        "active": active,
+        "inactive": inactive,
+        "total_active": len(active),
+        "total_inactive": len(inactive)
+    })
 
 #==============================================================================
 # SECTION 8: BLE DATA INGESTION
 #==============================================================================
-# BLE data ingestion endpoint (receives device data from ESPs)
 @app.route("/api/bledata", methods=["POST"])
 def bledata():
-    global live_devices
-    global beacon_locations
-    global manually_sent_beacons
-    
-    # Get device data from POST request
+    global live_devices, beacon_locations, manually_sent_beacons
+
     devices = request.get_json()
-    # Validate that the data is a list
     if not isinstance(devices, list):
         return jsonify({"error": "Invalid data format"}), 400
 
-    # Get current timestamp in local timezone
     now_dt = datetime.now(LOCAL_TIMEZONE)
     now_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
-
-    # Initialize live_devices_dict if not present
     if not hasattr(bledata, "live_devices_dict"):
         bledata.live_devices_dict = {}
 
-    # Process each device in the received list
     for device in devices:
-        # Normalize MAC address and add timestamp
         mac = device["mac"].replace("-", ":").lower().strip().replace('"', '')
         device["mac"] = mac
         device["time"] = now_str
 
-        # Lookup ESP mapping for room assignment
         mapping = esp_mapping.find_one({"esp_id": device.get("esp_id", "")})
         device["room"] = mapping["room"] if mapping else "unknown"
-        # Create a unique key for the device (MAC + ESP ID)
         key = f"{mac}_{device.get('esp_id','')}"
-        # Store device in live_devices_dict
         bledata.live_devices_dict[key] = device.copy()
 
-        # If device MAC is whitelisted, update history and latest tables
         if beacon_whitelist.find_one({"mac": mac}):
-            # Insert device data into beacon_history collection
             beacon_history.insert_one({
                 "esp_id": device.get("esp_id", ""),
                 "esp_name": device.get("esp_name", ""),
@@ -353,7 +230,6 @@ def bledata():
                 "rssi": device.get("rssi", ""),
                 "time": now_str,
             })
-            # Update beacon_latest collection with most recent data
             beacon_latest.update_one(
                 {"mac": mac},
                 {"$set": {
@@ -366,65 +242,91 @@ def bledata():
                 }},
                 upsert=True
             )
-            
-            # Send to Mirth only if:
-            # 1. Beacon is new (first time seeing it)
-            # 2. OR beacon location (room) has changed
-            should_send_to_mirth = False
-            
-            if mac not in beacon_locations:
-                # First time seeing this beacon
-                should_send_to_mirth = True
-                print(f"✓ New beacon detected: {mac} in {device['room']}")
-            elif beacon_locations[mac] != device["room"]:
-                # Beacon moved to a different room
+             # Location-change detection and message to Mirth
+            if mac in beacon_locations and beacon_locations[mac] != device["room"]:
                 old_room = beacon_locations[mac]
-                should_send_to_mirth = True
-                old_key = f"{mac}_{old_room}"
-                new_key = f"{mac}_{device['room']}"
-                
-                # Remove old location from manually_sent_beacons so it can be sent again at new location
-                if old_key in manually_sent_beacons:
-                    del manually_sent_beacons[old_key]
-                
-                print(f"✓ Beacon {mac} moved from {old_room} to {device['room']}")
-            
-            # Update the stored location
-            beacon_locations[mac] = device["room"]
-            
-            # Send to Mirth if there's a change
-            if should_send_to_mirth:
-                try:
-                    mirth_url = "http://192.168.1.117:6661"
-                    mirth_message = {
+                new_room = device["room"]
+                mirth_url = "http://192.168.1.117:6661"
+                movement_payload = {
+                    "event": "beacon_location_change",
+                    "summary": f"Beacon {mac} moved from {old_room} to {new_room}",
+                    "beacon": {
                         "esp_id": device.get("esp_id", ""),
                         "esp_name": device.get("esp_name", ""),
-                        "room": device["room"],
+                        "room": new_room,
                         "mac": mac,
                         "rssi": device.get("rssi", ""),
-                        "time": now_str,
+                        "time": now_str
                     }
+                }
+                try:
                     requests.post(
                         mirth_url,
-                        json=mirth_message,
+                        json=movement_payload,
                         timeout=5,
                         headers={'Content-Type': 'application/json'}
                     )
-                    # Mark as sent for this location (automatic send)
-                    beacon_room_key = f"{mac}_{device['room']}"
-                    manually_sent_beacons[beacon_room_key] = True
-                    print(f"✓ Sent beacon {mac} to Mirth (automatic)")
                 except requests.exceptions.RequestException as e:
-                    print(f"✗ Failed to send beacon {mac} to Mirth: {str(e)}")
-    
-    # Update global live_devices list with current device states
+                    print(f"✗ Failed to send location change for {mac} to Mirth: {str(e)}")
+
+            # Update stored location (always)
+            beacon_locations[mac] = device["room"]
+ 
     live_devices = list(bledata.live_devices_dict.values())
-    # Return success response with count of received devices
     return jsonify({"status": "success", "received": len(devices)})
 
 #==============================================================================
-# SECTION 9: APPLICATION ENTRY POINT
+# SECTION 9: SEND ACTIVE BEACONS TO MIRTH (MANUAL)
 #==============================================================================
-# Run the Flask app
+@app.route("/api/send-active-beacons-to-mirth", methods=["POST"])
+@auth_required
+def send_active_beacons_to_mirth():
+    global beacon_locations  # sent-beacon tracking not used anymore
+
+    try:
+        active_beacons = list(beacon_latest.find({}, {"_id": 0}))
+        mirth_url = "http://192.168.1.117:6661"
+
+        beacons_to_send = []
+        sent_count = 0
+
+        for beacon in active_beacons:
+            mac = beacon.get("mac", "")
+            room = beacon.get("room", "")
+            # Always add every active beacon to the batch
+            beacons_to_send.append({
+                "esp_id": beacon.get("esp_id", ""),
+                "esp_name": beacon.get("esp_name", ""),
+                "room": room,
+                "mac": mac,
+                "rssi": beacon.get("rssi", ""),
+                "time": beacon.get("time", "")
+            })
+            sent_count += 1
+
+        payload = {
+            "beacons": beacons_to_send,
+            "summary": "Successfully sent active beacons to Mirth"
+        }
+        requests.post(
+            mirth_url,
+            json=payload,
+            timeout=5,
+            headers={'Content-Type': 'application/json'}
+        )
+
+        return jsonify({
+            "status": "success",
+            "message": "Successfully sent active beacons to Mirth",
+            "sent_count": sent_count,
+            "total_beacons": len(active_beacons)
+        })
+
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+#==============================================================================
+# SECTION 10: APPLICATION ENTRY POINT
+#==============================================================================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
