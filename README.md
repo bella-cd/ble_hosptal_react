@@ -1,3 +1,4 @@
 A real-time BLE tracking dashboard for hospitals using ESP32, Flask, React, and MongoDB.
 
-<img width="883" height="355" alt="image" src="https://github.com/user-attachments/assets/4c858e71-c413-40b0-a8f6-ed6f06c25bb0" />
+System Architecture Overview
+<img width="892" height="629" alt="image" src="https://github.com/user-attachments/assets/52840c47-c4e2-4312-bb6f-5abfcf5db626" />
